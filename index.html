@@ -104,18 +104,16 @@ button:hover {
 let messages = [];
 let loading = false;
 
-// Faster + better typing effect
+// Typing effect (clean)
 async function typeText(element, text) {
   element.innerHTML = "";
   
-  let speed = 5; // 🔥 faster typing
+  let speed = 5;
 
   for (let i = 0; i < text.length; i++) {
-    element.innerHTML += text[i]
-      .replace(/\n/g, "<br>")
-      .replace(/ /g, "&nbsp;");
+    element.innerHTML += text[i] === "\n" ? "<br>" : text[i];
 
-    if (i % 3 === 0) { // speed boost (skip delay sometimes)
+    if (i % 3 === 0) {
       await new Promise(r => setTimeout(r, speed));
     }
   }
@@ -159,7 +157,6 @@ async function sendMessage() {
 
     typingMsg.classList.remove("typing");
 
-    // 🔥 show instantly if too long
     if (reply.length > 300) {
       typingMsg.innerHTML = formatText(reply);
     } else {
@@ -175,9 +172,7 @@ async function sendMessage() {
 
 // Format text properly
 function formatText(text) {
-  return text
-    .replace(/\n/g, "<br>")
-    .replace(/ /g, "&nbsp;");
+  return text.replace(/\n/g, "<br>");
 }
 
 // Add message
@@ -188,7 +183,7 @@ function addMessage(text, type) {
   msg.className = "message " + type;
 
   if (type.includes("user")) {
-    msg.innerText = text; // user text normal
+    msg.innerText = text;
   } else {
     msg.innerHTML = formatText(text);
   }
