@@ -107,6 +107,41 @@ pre {
   top: 5px;
   right: 5px;
 }
+
+.message {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #238636;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.bot-avatar {
+  background: #30363d;
+}
+
+.bubble {
+  max-width: 65%;
+  padding: 10px;
+  border-radius: 12px;
+}
+
+.user .bubble {
+  background: #238636;
+}
+
+.bot .bubble {
+  background: #30363d;
+}
 </style>
 </head>
 
@@ -141,26 +176,18 @@ document.getElementById("newChat").onclick = () => {
   renderMessages();
 };
 
-// 🧠 Auto title generator
+// 🧠 Auto title
 async function generateTitle(chat) {
   try {
-    const firstMsg = chat.messages[0]?.content || "New Chat";
-
-    const res = await puter.ai.chat(
-      "Give a short 3-5 word title for this conversation: " + firstMsg
-    );
-
-    let title = typeof res === "string"
-      ? res
-      : res?.message?.content || "Chat";
-
-    return title.slice(0, 30);
+    const firstMsg = chat.messages[0]?.content || "";
+    const res = await puter.ai.chat("Short title: " + firstMsg);
+    return (res?.message?.content || res || "Chat").slice(0, 30);
   } catch {
     return "Chat";
   }
 }
 
-// 📂 Render sidebar
+// 📂 Sidebar
 function renderChats() {
   const list = document.getElementById("chatList");
   list.innerHTML = "";
@@ -168,34 +195,7 @@ function renderChats() {
   chats.forEach((chat, i) => {
     const div = document.createElement("div");
     div.className = "chat-item";
-
-    const title = document.createElement("span");
-    title.innerText = chat.title;
-
-    // 🗑 Delete button
-    const del = document.createElement("button");
-    del.innerText = "✕";
-    del.style.float = "right";
-    del.style.background = "transparent";
-    del.style.border = "none";
-    del.style.color = "white";
-    del.style.cursor = "pointer";
-
-    del.onclick = (e) => {
-      e.stopPropagation();
-      chats.splice(i, 1);
-
-      if (currentChatIndex === i) {
-        currentChatIndex = null;
-        document.getElementById("chat").innerHTML = "";
-      }
-
-      saveChats();
-      renderChats();
-    };
-
-    div.appendChild(title);
-    div.appendChild(del);
+    div.innerText = chat.title;
 
     div.onclick = () => {
       currentChatIndex = i;
@@ -218,6 +218,23 @@ function renderMessages() {
   });
 }
 
+// ⚡ STREAMING EFFECT (fake streaming)
+async function streamText(element, text) {
+  let current = "";
+
+  for (let i = 0; i < text.length; i++) {
+    current += text[i];
+    element.innerHTML = marked.parse(current);
+
+    if (i % 2 === 0) {
+      await new Promise(r => setTimeout(r, 5));
+    }
+  }
+
+  hljs.highlightAll();
+  addCopyButtons();
+}
+
 // 🚀 Send message
 async function sendMessage() {
   if (loading || currentChatIndex === null) return;
@@ -235,7 +252,7 @@ async function sendMessage() {
 
   input.value = "";
 
-  const typing = addMessageToUI("Typing...", "bot");
+  const typing = addMessageToUI("...", "bot");
 
   try {
     const res = await puter.ai.chat(chat.messages);
@@ -246,41 +263,49 @@ async function sendMessage() {
 
     chat.messages.push({ role: "assistant", content: reply });
 
-    typing.innerHTML = marked.parse(reply);
-    hljs.highlightAll();
-    addCopyButtons();
+    // ⚡ streaming effect
+    await streamText(typing.querySelector(".bubble"), reply);
 
-    // ✨ Generate title AFTER first response
-    if (chat.title === "New Chat" && chat.messages.length >= 2) {
+    if (chat.title === "New Chat") {
       chat.title = await generateTitle(chat);
       renderChats();
     }
 
-  } catch (err) {
-    typing.innerText = "Error";
+  } catch {
+    typing.querySelector(".bubble").innerText = "Error";
   }
 
   saveChats();
   loading = false;
 }
 
-// 💻 UI message
+// 💻 UI message with avatars
 function addMessageToUI(text, role) {
   const chat = document.getElementById("chat");
 
-  const div = document.createElement("div");
-  div.className = "message " + (role === "user" ? "user" : "bot");
+  const msg = document.createElement("div");
+  msg.className = "message " + role;
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar " + (role === "user" ? "" : "bot-avatar");
+  avatar.innerText = role === "user" ? "U" : "AI";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
 
   if (role === "user") {
-    div.innerText = text;
+    bubble.innerText = text;
   } else {
-    div.innerHTML = marked.parse(text);
+    bubble.innerHTML = marked.parse(text);
   }
 
-  chat.appendChild(div);
+  msg.appendChild(avatar);
+  msg.appendChild(bubble);
+
+  chat.appendChild(msg);
   chat.scrollTop = chat.scrollHeight;
 
-  return div;
+  return msg;
 }
 
 // 📋 Copy buttons
@@ -310,8 +335,8 @@ function saveChats() {
 // Init
 renderChats();
 
-// ⌨ Enter key
-document.getElementById("userInput").addEventListener("keydown", function(e) {
+// ⌨ Enter
+document.getElementById("userInput").addEventListener("keydown", e => {
   if (e.key === "Enter") sendMessage();
 });
 </script>
