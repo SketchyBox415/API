@@ -7,6 +7,13 @@
 
 <script src="https://js.puter.com/v2/"></script>
 
+<!-- Markdown -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<!-- Code Highlight -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
 <style>
 body {
   margin: 0;
@@ -88,6 +95,38 @@ button:hover {
   from {opacity: 0; transform: translateY(10px);}
   to {opacity: 1; transform: translateY(0);}
 }
+
+.message {
+  white-space: pre-wrap;
+}
+
+/* Code block styling */
+pre {
+  background: #0d1117;
+  padding: 12px;
+  border-radius: 10px;
+  overflow-x: auto;
+  position: relative;
+}
+
+code {
+  font-family: monospace;
+}
+
+/* Copy button */
+.copy-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #238636;
+  border: none;
+  padding: 5px 10px;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
 </style>
 </head>
 
@@ -104,17 +143,44 @@ button:hover {
 let messages = [];
 let loading = false;
 
-// Typing effect (clean)
-async function typeText(element, text) {
-  element.innerHTML = "";
-  
-  let speed = 5;
+// Convert markdown → HTML
+function renderMarkdown(text) {
+  return marked.parse(text);
+}
+
+// Add copy buttons to code blocks
+function addCopyButtons() {
+  document.querySelectorAll("pre").forEach(block => {
+    if (block.querySelector(".copy-btn")) return;
+
+    const btn = document.createElement("button");
+    btn.innerText = "Copy";
+    btn.className = "copy-btn";
+
+    btn.onclick = () => {
+      const code = block.innerText;
+      navigator.clipboard.writeText(code);
+      btn.innerText = "Copied!";
+      setTimeout(() => btn.innerText = "Copy", 1000);
+    };
+
+    block.appendChild(btn);
+  });
+}
+
+// Typing effect (markdown safe)
+async function typeMarkdown(element, text) {
+  let current = "";
 
   for (let i = 0; i < text.length; i++) {
-    element.innerHTML += text[i] === "\n" ? "<br>" : text[i];
+    current += text[i];
+
+    element.innerHTML = renderMarkdown(current);
+    hljs.highlightAll();
+    addCopyButtons();
 
     if (i % 3 === 0) {
-      await new Promise(r => setTimeout(r, speed));
+      await new Promise(r => setTimeout(r, 5));
     }
   }
 }
@@ -157,10 +223,13 @@ async function sendMessage() {
 
     typingMsg.classList.remove("typing");
 
-    if (reply.length > 300) {
-      typingMsg.innerHTML = formatText(reply);
+    // Fast render for long replies
+    if (reply.length > 500) {
+      typingMsg.innerHTML = renderMarkdown(reply);
+      hljs.highlightAll();
+      addCopyButtons();
     } else {
-      await typeText(typingMsg, reply);
+      await typeMarkdown(typingMsg, reply);
     }
 
   } catch (err) {
@@ -168,11 +237,6 @@ async function sendMessage() {
   }
 
   loading = false;
-}
-
-// Format text properly
-function formatText(text) {
-  return text.replace(/\n/g, "<br>");
 }
 
 // Add message
@@ -185,7 +249,7 @@ function addMessage(text, type) {
   if (type.includes("user")) {
     msg.innerText = text;
   } else {
-    msg.innerHTML = formatText(text);
+    msg.innerHTML = renderMarkdown(text);
   }
 
   chat.appendChild(msg);
