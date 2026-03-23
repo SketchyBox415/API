@@ -131,7 +131,7 @@ let chats = JSON.parse(localStorage.getItem("chats")) || [];
 let currentChatIndex = null;
 let loading = false;
 
-// Create new chat
+// ➕ New Chat
 document.getElementById("newChat").onclick = () => {
   const newChat = { title: "New Chat", messages: [] };
   chats.push(newChat);
@@ -141,7 +141,26 @@ document.getElementById("newChat").onclick = () => {
   renderMessages();
 };
 
-// Render sidebar
+// 🧠 Auto title generator
+async function generateTitle(chat) {
+  try {
+    const firstMsg = chat.messages[0]?.content || "New Chat";
+
+    const res = await puter.ai.chat(
+      "Give a short 3-5 word title for this conversation: " + firstMsg
+    );
+
+    let title = typeof res === "string"
+      ? res
+      : res?.message?.content || "Chat";
+
+    return title.slice(0, 30);
+  } catch {
+    return "Chat";
+  }
+}
+
+// 📂 Render sidebar
 function renderChats() {
   const list = document.getElementById("chatList");
   list.innerHTML = "";
@@ -149,7 +168,34 @@ function renderChats() {
   chats.forEach((chat, i) => {
     const div = document.createElement("div");
     div.className = "chat-item";
-    div.innerText = chat.title;
+
+    const title = document.createElement("span");
+    title.innerText = chat.title;
+
+    // 🗑 Delete button
+    const del = document.createElement("button");
+    del.innerText = "✕";
+    del.style.float = "right";
+    del.style.background = "transparent";
+    del.style.border = "none";
+    del.style.color = "white";
+    del.style.cursor = "pointer";
+
+    del.onclick = (e) => {
+      e.stopPropagation();
+      chats.splice(i, 1);
+
+      if (currentChatIndex === i) {
+        currentChatIndex = null;
+        document.getElementById("chat").innerHTML = "";
+      }
+
+      saveChats();
+      renderChats();
+    };
+
+    div.appendChild(title);
+    div.appendChild(del);
 
     div.onclick = () => {
       currentChatIndex = i;
@@ -160,7 +206,7 @@ function renderChats() {
   });
 }
 
-// Render messages
+// 💬 Render messages
 function renderMessages() {
   const chatDiv = document.getElementById("chat");
   chatDiv.innerHTML = "";
@@ -172,7 +218,7 @@ function renderMessages() {
   });
 }
 
-// Send message
+// 🚀 Send message
 async function sendMessage() {
   if (loading || currentChatIndex === null) return;
 
@@ -193,13 +239,22 @@ async function sendMessage() {
 
   try {
     const res = await puter.ai.chat(chat.messages);
-    let reply = res?.message?.content || res;
+
+    let reply = typeof res === "string"
+      ? res
+      : res?.message?.content || res;
 
     chat.messages.push({ role: "assistant", content: reply });
 
     typing.innerHTML = marked.parse(reply);
     hljs.highlightAll();
     addCopyButtons();
+
+    // ✨ Generate title AFTER first response
+    if (chat.title === "New Chat" && chat.messages.length >= 2) {
+      chat.title = await generateTitle(chat);
+      renderChats();
+    }
 
   } catch (err) {
     typing.innerText = "Error";
@@ -209,7 +264,7 @@ async function sendMessage() {
   loading = false;
 }
 
-// UI message
+// 💻 UI message
 function addMessageToUI(text, role) {
   const chat = document.getElementById("chat");
 
@@ -228,7 +283,7 @@ function addMessageToUI(text, role) {
   return div;
 }
 
-// Copy button
+// 📋 Copy buttons
 function addCopyButtons() {
   document.querySelectorAll("pre").forEach(block => {
     if (block.querySelector("button")) return;
@@ -247,13 +302,18 @@ function addCopyButtons() {
   });
 }
 
-// Save chats
+// 💾 Save
 function saveChats() {
   localStorage.setItem("chats", JSON.stringify(chats));
 }
 
 // Init
 renderChats();
+
+// ⌨ Enter key
+document.getElementById("userInput").addEventListener("keydown", function(e) {
+  if (e.key === "Enter") sendMessage();
+});
 </script>
 
 </body>
