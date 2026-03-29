@@ -1,320 +1,54 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Chat App</title>
-
-<script src="https://js.puter.com/v2/"></script>
-<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-
-<style>
-body {
-  margin: 0;
-  display: flex;
-  height: 100vh;
-  font-family: Arial;
-  background: #0d1117;
-  color: white;
-}
-
-/* Sidebar */
-#sidebar {
-  width: 250px;
-  background: #161b22;
-  padding: 10px;
-  display: flex;
-  flex-direction: column;
-}
-
-#newChat {
-  padding: 10px;
-  background: #238636;
-  border: none;
-  color: white;
-  border-radius: 8px;
-  cursor: pointer;
-  margin-bottom: 10px;
-}
-
-.chat-item {
-  padding: 8px;
-  background: rgba(255,255,255,0.05);
-  margin-bottom: 5px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-/* Chat area */
-#main {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-}
-
-#chat {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px;
-}
-
-.message {
-  max-width: 65%;
-  padding: 10px;
-  margin: 8px 0;
-  border-radius: 12px;
-}
-
-.user {
-  background: #238636;
-  align-self: flex-end;
-}
-
-.bot {
-  background: #30363d;
-}
-
-/* Input */
-#inputArea {
-  display: flex;
-  padding: 10px;
-  background: #161b22;
-}
-
-#userInput {
-  flex: 1;
-  padding: 10px;
-  border: none;
-  border-radius: 8px;
-}
-
-button {
-  margin-left: 10px;
-}
-
-/* Code */
-pre {
-  background: #0d1117;
-  padding: 10px;
-  border-radius: 8px;
-  position: relative;
-}
-
-.copy-btn {
-  position: absolute;
-  top: 5px;
-  right: 5px;
-}
-</style>
-</head>
-
-<body>
-
-<div id="sidebar">
-  <button id="newChat">+ New Chat</button>
-  <div id="chatList"></div>
-</div>
-
-<div id="main">
-  <div id="chat"></div>
-
-  <div id="inputArea">
-    <input id="userInput" placeholder="Type..." />
-    <button onclick="sendMessage()">Send</button>
-  </div>
-</div>
-
-<script>
-let chats = JSON.parse(localStorage.getItem("chats")) || [];
-let currentChatIndex = null;
-let loading = false;
-
-// ➕ New Chat
-document.getElementById("newChat").onclick = () => {
-  const newChat = { title: "New Chat", messages: [] };
-  chats.push(newChat);
-  currentChatIndex = chats.length - 1;
-  saveChats();
-  renderChats();
-  renderMessages();
-};
-
-// 🧠 Auto title generator
-async function generateTitle(chat) {
-  try {
-    const firstMsg = chat.messages[0]?.content || "New Chat";
-
-    const res = await puter.ai.chat(
-      "Give a short 3-5 word title for this conversation: " + firstMsg
-    );
-
-    let title = typeof res === "string"
-      ? res
-      : res?.message?.content || "Chat";
-
-    return title.slice(0, 30);
-  } catch {
-    return "Chat";
-  }
-}
-
-// 📂 Render sidebar
-function renderChats() {
-  const list = document.getElementById("chatList");
-  list.innerHTML = "";
-
-  chats.forEach((chat, i) => {
-    const div = document.createElement("div");
-    div.className = "chat-item";
-
-    const title = document.createElement("span");
-    title.innerText = chat.title;
-
-    // 🗑 Delete button
-    const del = document.createElement("button");
-    del.innerText = "✕";
-    del.style.float = "right";
-    del.style.background = "transparent";
-    del.style.border = "none";
-    del.style.color = "white";
-    del.style.cursor = "pointer";
-
-    del.onclick = (e) => {
-      e.stopPropagation();
-      chats.splice(i, 1);
-
-      if (currentChatIndex === i) {
-        currentChatIndex = null;
-        document.getElementById("chat").innerHTML = "";
-      }
-
-      saveChats();
-      renderChats();
-    };
-
-    div.appendChild(title);
-    div.appendChild(del);
-
-    div.onclick = () => {
-      currentChatIndex = i;
-      renderMessages();
-    };
-
-    list.appendChild(div);
-  });
-}
-
-// 💬 Render messages
-function renderMessages() {
-  const chatDiv = document.getElementById("chat");
-  chatDiv.innerHTML = "";
-
-  if (currentChatIndex === null) return;
-
-  chats[currentChatIndex].messages.forEach(msg => {
-    addMessageToUI(msg.content, msg.role);
-  });
-}
-
-// 🚀 Send message
-async function sendMessage() {
-  if (loading || currentChatIndex === null) return;
-
-  const input = document.getElementById("userInput");
-  const text = input.value.trim();
-  if (!text) return;
-
-  loading = true;
-
-  const chat = chats[currentChatIndex];
-
-  chat.messages.push({ role: "user", content: text });
-  addMessageToUI(text, "user");
-
-  input.value = "";
-
-  const typing = addMessageToUI("Typing...", "bot");
-
-  try {
-    const res = await puter.ai.chat(chat.messages);
-
-    let reply = typeof res === "string"
-      ? res
-      : res?.message?.content || res;
-
-    chat.messages.push({ role: "assistant", content: reply });
-
-    typing.innerHTML = marked.parse(reply);
-    hljs.highlightAll();
-    addCopyButtons();
-
-    // ✨ Generate title AFTER first response
-    if (chat.title === "New Chat" && chat.messages.length >= 2) {
-      chat.title = await generateTitle(chat);
-      renderChats();
-    }
-
-  } catch (err) {
-    typing.innerText = "Error";
-  }
-
-  saveChats();
-  loading = false;
-}
-
-// 💻 UI message
-function addMessageToUI(text, role) {
-  const chat = document.getElementById("chat");
-
-  const div = document.createElement("div");
-  div.className = "message " + (role === "user" ? "user" : "bot");
-
-  if (role === "user") {
-    div.innerText = text;
-  } else {
-    div.innerHTML = marked.parse(text);
-  }
-
-  chat.appendChild(div);
-  chat.scrollTop = chat.scrollHeight;
-
-  return div;
-}
-
-// 📋 Copy buttons
-function addCopyButtons() {
-  document.querySelectorAll("pre").forEach(block => {
-    if (block.querySelector("button")) return;
-
-    const btn = document.createElement("button");
-    btn.innerText = "Copy";
-    btn.className = "copy-btn";
-
-    btn.onclick = () => {
-      navigator.clipboard.writeText(block.innerText);
-      btn.innerText = "Copied!";
-      setTimeout(() => btn.innerText = "Copy", 1000);
-    };
-
-    block.appendChild(btn);
-  });
-}
-
-// 💾 Save
-function saveChats() {
-  localStorage.setItem("chats", JSON.stringify(chats));
-}
-
-// Init
-renderChats();
-
-// ⌨ Enter key
-document.getElementById("userInput").addEventListener("keydown", function(e) {
-  if (e.key === "Enter") sendMessage();
-});
-</script>
-
-</body>
+<!doctype html>
+<html>
+    <head>
+        <title>
+            Box AI | Use the best of ChatGPT, Gemini, and more together
+        </title>
+    </head>
+    <body>
+        <script src="https://js.puter.com/v2/"></script>
+        <script>
+            const sleep = (ms) =>
+                new Promise((resolve) => setTimeout(resolve, ms));
+
+            async function total_function() {
+                const response = await puter.ai.chat(
+                    `make a simple HTML page`,
+                    {
+                        model: "gpt-5-nano",
+                    },
+                );
+
+                //Extract actual text
+                let output = response.message.content;
+
+                console.log(output);
+
+                // Display output as streaming text
+
+                const output_para = document.createElement("p");
+                output_para.className = "output";
+                output_para.id = "output_01";
+
+                document.body.appendChild(output_para);
+                let num_of_chars = output.length;
+                let displayed_chars = 0;
+
+                while (displayed_chars < num_of_chars) {
+                    let randonmly_add_extra_char = Math.floor(
+                        Math.random() * 7,
+                    );
+                    output_para.textContent = output.substring(
+                        0,
+                        displayed_chars + randonmly_add_extra_char,
+                    );
+                    displayed_chars += randonmly_add_extra_char;
+                    await sleep(30); // Wait for 30ms between characters
+                }
+            }
+
+            // call function
+            total_function();
+        </script>
+    </body>
 </html>
