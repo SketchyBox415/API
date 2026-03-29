@@ -1,46 +1,63 @@
 <!doctype html>
 <html>
-  <head>
-    <title>Box AI | Use the best of ChatGPT, Gemini, and more together</title>
-  </head>
-  <body>
-    <script src="https://js.puter.com/v2/"></script>
-    <script>
-      const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+    <head>
+        <title>
+            Box AI | Use the best of ChatGPT, Gemini, and more together
+        </title>
+        <style>
+            .output {
+                white-space: pre-wrap;
+                font-family: monospace;
+                background-color: #f4f4f4;
+                padding: 15px;
+                border-radius: 5px;
+            }
+        </style>
+    </head>
+    <body>
+        <script src="https://js.puter.com/v2/"></script>
+        <script>
+            const sleep = (ms) =>
+                new Promise((resolve) => setTimeout(resolve, ms));
 
-      async function total_function() {
-        const response = await puter.ai.chat(`make a simple HTML page`, {
-          model: "gpt-5-nano",
-        });
+            async function total_function() {
+                const response = await puter.ai.chat(
+                    `make a simple HTML page`,
+                    {
+                        model: "gpt-5-nano",
+                    },
+                );
 
-        //Extract actual text
-        let output = response.message.content;
+                //Extract actual text
+                let output = response.message.content;
 
-        console.log(output);
+                console.log(output);
 
-        // Display output as streaming text
+                // Display output as streaming text
 
-        const output_para = document.createElement("p");
-        output_para.className = "output";
-        output_para.id = "output_01";
+                const output_para = document.createElement("p");
+                output_para.className = "output";
+                output_para.id = "output_01";
 
-        document.body.appendChild(output_para);
-        let num_of_chars = output.length;
-        let displayed_chars = 0;
+                document.body.appendChild(output_para);
+                let num_of_chars = output.length;
+                let displayed_chars = 0;
 
-        while (displayed_chars < num_of_chars) {
-          let randonmly_add_extra_char = Math.floor(Math.random() * 7);
-          output_para.textContent = output.substring(
-            0,
-            displayed_chars + randonmly_add_extra_char,
-          );
-          displayed_chars += randonmly_add_extra_char;
-          await sleep(30); // Wait for 30ms between characters
-        }
-      }
+                while (displayed_chars < num_of_chars) {
+                    let randonmly_add_extra_char = Math.floor(
+                        Math.random() * 7,
+                    );
+                    output_para.textContent = output.substring(
+                        0,
+                        displayed_chars + randonmly_add_extra_char,
+                    );
+                    displayed_chars += randonmly_add_extra_char;
+                    await sleep(30); // Wait for 30ms between characters
+                }
+            }
 
-      // call function
-      total_function();
-    </script>
-  </body>
+            // call function
+            total_function();
+        </script>
+    </body>
 </html>
